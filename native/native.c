@@ -28,6 +28,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #endif
 
@@ -410,7 +411,15 @@ lean_obj_res lean_socket_send(b_lean_obj_arg s, b_lean_obj_arg b, lean_obj_arg w
     }
     else
     {
-        return lean_io_result_mk_error(get_socket_error());
+        int errnum = errno;
+        if (errnum == EAGAIN || errnum == EWOULDBLOCK)
+        {
+            return lean_io_result_mk_ok(lean_box_usize(0));
+        }
+        else
+        {
+            return lean_io_result_mk_error(get_socket_error());
+        }
     }
 }
 
@@ -428,12 +437,20 @@ lean_obj_res lean_socket_sendto(b_lean_obj_arg s, b_lean_obj_arg b, b_lean_obj_a
     }
     else
     {
-        return lean_io_result_mk_error(get_socket_error());
+        int errnum = errno;
+        if (errnum == EAGAIN || errnum == EWOULDBLOCK)
+        {
+            return lean_io_result_mk_ok(lean_box_usize(0));
+        }
+        else
+        {
+            return lean_io_result_mk_error(get_socket_error());
+        }
     }
 }
 
 /**
- * opaque Socket.recv (s : @& Socket) (n : @& USize) : IO ByteArray
+ * opaque Socket.recv (s : @& Socket) (n : @& USize) : IO (Option ByteArray)
  */
 lean_obj_res lean_socket_recv(b_lean_obj_arg s, size_t n, lean_obj_arg w)
 {
@@ -442,16 +459,25 @@ lean_obj_res lean_socket_recv(b_lean_obj_arg s, size_t n, lean_obj_arg w)
     if (bytes >= 0)
     {
         lean_to_sarray(arr)->m_size = bytes;
-        return lean_io_result_mk_ok(arr);
+        return lean_io_result_mk_ok(lean_option_mk_some(arr));
     }
     else
     {
-        return lean_io_result_mk_error(get_socket_error());
+        lean_dec_ref(arr);
+        int errnum = errno;
+        if (errnum == EAGAIN || errnum == EWOULDBLOCK)
+        {
+            return lean_io_result_mk_ok(lean_option_mk_none());
+        }
+        else
+        {
+            return lean_io_result_mk_error(get_socket_error());
+        }
     }
 }
 
 /**
- * opaque Socket.recvfrom (s : @& Socket) (n : @& USize) : IO (SockAddr × ByteArray)
+ * opaque Socket.recvfrom (s : @& Socket) (n : @& USize) : IO (SockAddr × Option ByteArray)
  */
 lean_obj_res lean_socket_recvfrom(b_lean_obj_arg s, size_t n, lean_obj_arg w)
 {
@@ -463,12 +489,24 @@ lean_obj_res lean_socket_recvfrom(b_lean_obj_arg s, size_t n, lean_obj_arg w)
         lean_to_sarray(arr)->m_size = bytes;
         lean_object *o = lean_alloc_ctor(0, 2, 0);
         lean_ctor_set(o, 0, sockaddr_len_box(sal));
-        lean_ctor_set(o, 1, arr);
-        return lean_io_result_mk_ok(arr);
+        lean_ctor_set(o, 1, lean_option_mk_some(arr));
+        return lean_io_result_mk_ok(o);
     }
     else
     {
-        return lean_io_result_mk_error(get_socket_error());
+        lean_dec_ref(arr);
+        int errnum = errno;
+        if (errnum == EAGAIN || errnum == EWOULDBLOCK)
+        {
+            lean_object *o = lean_alloc_ctor(0, 2, 0);
+            lean_ctor_set(o, 0, sockaddr_len_box(sal));
+            lean_ctor_set(o, 1, lean_option_mk_none());
+            return lean_io_result_mk_ok(o);
+        }
+        else
+        {
+            return lean_io_result_mk_error(get_socket_error());
+        }
     }
 }
 
@@ -487,6 +525,63 @@ lean_obj_res lean_socket_peer(b_lean_obj_arg s, lean_obj_arg w)
     {
         return lean_io_result_mk_error(get_socket_error());
     }
+}
+
+/**
+ * opaque setBlocking (s : @& Socket) (blocking : Bool) : IO Unit
+ */
+lean_obj_res lean_socket_setblocking(b_lean_obj_arg s, uint8_t blocking, lean_obj_arg w)
+{
+#ifdef _WIN32
+    SOCKET s = *socket_unbox(s);
+    unsigned long mode = blocking ? 0 : 1;
+    int status = ioctlsocket(*socket_unbox(s), FIONBIO, &mode) == 0;
+    if (status == 0)
+    {
+        return lean_io_result_mk_ok(lean_box(0));
+    }
+    else
+    {
+        return lean_io_result_mk_error(get_socket_error());
+    }
+#else
+    SOCKET fd = *socket_unbox(s);
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1)
+    {
+        return lean_io_result_mk_error(get_socket_error());
+    }
+    flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+    int status = fcntl(fd, F_SETFL, flags);
+    if (status == 0)
+    {
+        return lean_io_result_mk_ok(lean_box(0));
+    }
+    else
+    {
+        return lean_io_result_mk_error(get_socket_error());
+    }
+#endif
+}
+
+/**
+ * opaque blocking (s : @& Socket) : IO Bool
+ */
+lean_obj_res lean_socket_getblocking(b_lean_obj_arg s, lean_obj_arg w)
+{
+#ifdef _WIN32
+    return return lean_io_result_mk_error(lean_mk_string("Can't check if the socket is blocking on Windows"));
+#else
+    int flags = fcntl(*socket_unbox(s), F_GETFL, 0);
+    if (flags == -1)
+    {
+        return lean_io_result_mk_error(get_socket_error());
+    }
+    else
+    {
+        return lean_io_result_mk_ok(lean_box((flags & O_NONBLOCK) == 0));
+    }
+#endif
 }
 
 // ## SockAddr

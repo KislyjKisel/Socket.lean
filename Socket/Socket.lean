@@ -44,7 +44,7 @@ namespace Socket
 /--
   Receive a message from a socket.
 -/
-@[extern "lean_socket_recv"] opaque recv (s : @& Socket) (n : @& USize) : IO ByteArray
+@[extern "lean_socket_recv"] opaque recv (s : @& Socket) (n : @& USize) : IO (Option ByteArray)
 
 /--
   Send a message from a socket.
@@ -54,7 +54,7 @@ namespace Socket
 /--
   Receive a message from a socket.
 -/
-@[extern "lean_socket_recvfrom"] opaque recvfrom (s : @& Socket) (n : @& USize) : IO (SockAddr × ByteArray)
+@[extern "lean_socket_recvfrom"] opaque recvfrom (s : @& Socket) (n : @& USize) : IO (SockAddr × Option ByteArray)
 
 /--
   Shut down part of a full-duplex connection.
@@ -65,6 +65,16 @@ namespace Socket
   Get address of connected peer.
 -/
 @[extern "lean_socket_peer"] opaque peer (s : @& Socket) : IO SockAddr
+
+/--
+  Mark socket as blocking or non-blocking.
+-/
+@[extern "lean_socket_setblocking"] opaque setBlocking (s : @& Socket) (blocking : Bool) : IO Unit
+
+/--
+  Check if the socket is blocking. Returns an error on Windows.
+-/
+@[extern "lean_socket_getblocking"] opaque blocking (s : @& Socket) : IO Bool
 
 end Socket
 end Socket
