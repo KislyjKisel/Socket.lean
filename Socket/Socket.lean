@@ -54,7 +54,7 @@ namespace Socket
 /--
   Receive a message from a socket.
 -/
-@[extern "lean_socket_recvfrom"] opaque recvfrom (s : @& Socket) (n : @& USize) : IO (SockAddr × Option ByteArray)
+@[extern "lean_socket_recvfrom"] opaque recvfrom (s : @& Socket) (n : @& USize) : IO (Option (SockAddr × ByteArray))
 
 /--
   Shut down part of a full-duplex connection.

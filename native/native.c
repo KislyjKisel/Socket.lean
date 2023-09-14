@@ -478,7 +478,7 @@ lean_obj_res lean_socket_recv(b_lean_obj_arg s, size_t n, lean_obj_arg w)
 }
 
 /**
- * opaque Socket.recvfrom (s : @& Socket) (n : @& USize) : IO (SockAddr × Option ByteArray)
+ * opaque Socket.recvfrom (s : @& Socket) (n : @& USize) : IO (Option (SockAddr × ByteArray))
  */
 lean_obj_res lean_socket_recvfrom(b_lean_obj_arg s, size_t n, lean_obj_arg w)
 {
@@ -490,19 +490,17 @@ lean_obj_res lean_socket_recvfrom(b_lean_obj_arg s, size_t n, lean_obj_arg w)
         lean_to_sarray(arr)->m_size = bytes;
         lean_object *o = lean_alloc_ctor(0, 2, 0);
         lean_ctor_set(o, 0, sockaddr_len_box(sal));
-        lean_ctor_set(o, 1, lean_option_mk_some(arr));
-        return lean_io_result_mk_ok(o);
+        lean_ctor_set(o, 1, arr);
+        return lean_io_result_mk_ok(lean_option_mk_some(o));
     }
     else
     {
         lean_dec_ref(arr);
+        free(sal);
         int errnum = errno;
         if (errnum == EAGAIN || errnum == EWOULDBLOCK)
         {
-            lean_object *o = lean_alloc_ctor(0, 2, 0);
-            lean_ctor_set(o, 0, sockaddr_len_box(sal));
-            lean_ctor_set(o, 1, lean_option_mk_none());
-            return lean_io_result_mk_ok(o);
+            return lean_io_result_mk_ok(lean_option_mk_none());
         }
         else
         {
