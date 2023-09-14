@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 
 #endif
 
@@ -580,6 +581,71 @@ lean_obj_res lean_socket_getblocking(b_lean_obj_arg s, lean_obj_arg w)
     else
     {
         return lean_io_result_mk_ok(lean_box((flags & O_NONBLOCK) == 0));
+    }
+#endif
+}
+
+uint16_t lean_socket_poll_in(lean_obj_arg unit) { return POLLIN; };
+uint16_t lean_socket_poll_pri(lean_obj_arg unit) { return POLLPRI; };
+uint16_t lean_socket_poll_out(lean_obj_arg unit) { return POLLOUT; };
+uint16_t lean_socket_poll_err(lean_obj_arg unit) { return POLLERR; };
+uint16_t lean_socket_poll_hup(lean_obj_arg unit) { return POLLHUP; };
+uint16_t lean_socket_poll_nval(lean_obj_arg unit) { return POLLNVAL; };
+
+/**
+ * opaque poll (s : Array Poll) (timeout : UInt32) : IO (Array Poll)
+ */
+lean_obj_res lean_socket_poll(lean_obj_arg s, uint32_t timeout, lean_obj_arg w) {
+#ifdef _WIN32
+#error TODO
+#else
+    size_t n = lean_array_size(s);
+    struct pollfd * pollfds = malloc(n * sizeof(struct pollfd));
+    for (size_t i = 0; i < n; ++i) {
+        lean_object* lP = lean_array_get_core(s, i);
+        pollfds[i].fd = *socket_unbox(lean_ctor_get(lP, 0));
+        if (lean_unbox(lean_ctor_get(lP, 3)) == 1) {
+            pollfds[i].fd = ~pollfds[i].fd;
+        }
+        pollfds[i].events = (uint16_t)lean_unbox(lean_ctor_get(lP, 1));
+        pollfds[i].revents = 0;
+    }
+    int res = poll(pollfds, n, (int32_t)timeout);
+    if (res < 0) {
+        lean_dec_ref(s);
+        free(pollfds);
+        return lean_io_result_mk_error(get_socket_error());
+    }
+    if (lean_is_exclusive(s)) {
+        for (size_t i = 0; i < n; ++i) {
+            lean_object* lP = lean_array_get_core(s, i);
+            if (lean_unbox(lean_ctor_get(lP, 3)) == 0) {
+                lean_ctor_set(lP, 2, lean_box((uint16_t)pollfds[i].revents));
+            }
+        }
+        free(pollfds);
+        return lean_io_result_mk_ok(s);
+    }
+    else {
+        lean_object* sCpy = lean_alloc_array(n, n);
+        for (size_t i = 0; i < n; ++i) {
+            lean_object* lP = lean_array_get_core(s, i);
+            lean_object* lPCpy = lean_alloc_ctor(0, 4, 0);
+            lean_object* lSock = lean_ctor_get(lP, 0);
+            size_t ignore = lean_unbox(lean_ctor_get(lP, 3));
+            uint16_t revents = ignore == 1 ?
+                lean_unbox(lean_ctor_get(lP, 2))
+                : (uint16_t)pollfds[i].revents;
+            lean_inc_ref(lSock);
+            lean_ctor_set(lPCpy, 0, lSock);
+            lean_ctor_set(lPCpy, 1, lean_ctor_get(lP, 1));
+            lean_ctor_set(lPCpy, 2, lean_box(revents));
+            lean_ctor_set(lPCpy, 3, lean_box(ignore));
+            lean_array_set_core(sCpy, i, lPCpy);
+        }
+        lean_dec_ref(s);
+        free(pollfds);
+        return lean_io_result_mk_ok(sCpy);
     }
 #endif
 }

@@ -76,5 +76,68 @@ namespace Socket
 -/
 @[extern "lean_socket_getblocking"] opaque blocking (s : @& Socket) : IO Bool
 
+structure Poll where
+  sock : Socket
+  events : UInt16
+  revents : UInt16
+  ignore : Bool
+
+@[extern "lean_socket_poll_in"]
+private opaque Poll.in' : Unit → UInt16
+
+@[extern "lean_socket_poll_pri"]
+private opaque Poll.pri' : Unit → UInt16
+
+@[extern "lean_socket_poll_out"]
+private opaque Poll.out' : Unit → UInt16
+
+@[extern "lean_socket_poll_err"]
+private opaque Poll.err' : Unit → UInt16
+
+@[extern "lean_socket_poll_hup"]
+private opaque Poll.hup' : Unit → UInt16
+
+@[extern "lean_socket_poll_nval"]
+private opaque Poll.nval' : Unit → UInt16
+
+/-- There is data to read. -/
+def Poll.in := Poll.in' ()
+
+/--
+There is some exceptional condition on the socket.
+Possibilities include:
+* There is out-of-band data on a TCP socket.
+* A `cgroup.events` file has been modified.
+-/
+def Poll.pri := Poll.pri' ()
+
+/--
+Writing is now possible,
+though a write larger than the available space in a socket will still block.
+-/
+def Poll.out := Poll.out' ()
+
+/-- Error condition (only returned in `revents`; ignored in `events`). -/
+def Poll.err := Poll.err' ()
+
+/--
+Hang up (only returned in `revents`; ignored in `events`).
+Note that when reading from a channel such as a stream socket,
+this event merely indicates that the peer closed its end of the channel.
+Subsequent reads from the channel will return 0 (EOF) only
+after all outstanding data in the channel has been consumed.
+-/
+def Poll.hup := Poll.hup' ()
+
+/-- Invalid request: socket not open (only returned in `revents`, ignored in `events`). -/
+def Poll.nval := Poll.nval' ()
+
+/--
+  Wait for one of a set of sockets to become ready to perform I/O.
+  Updates `revents` fields of the structs in the passed array, where the `ignore` field is set to false.
+  NOTE: `timeout` is used as `Int32`; negative value means inifnite timeout, zero means return immediately.
+-/
+@[extern "lean_socket_poll"] opaque poll (s : Array Poll) (timeout : UInt32) : IO (Array Poll)
+
 end Socket
 end Socket
