@@ -76,6 +76,8 @@ namespace Socket
 -/
 @[extern "lean_socket_getblocking"] opaque blocking (s : @& Socket) : IO Bool
 
+end Socket
+
 structure Poll where
   sock : Socket
   events : UInt16
@@ -139,5 +141,4 @@ def Poll.nval := Poll.nval' ()
 -/
 @[extern "lean_socket_poll"] opaque poll (s : Array Poll) (timeout : UInt32) : IO (Array Poll)
 
-end Socket
 end Socket
