@@ -139,6 +139,7 @@ def Poll.nval := Poll.nval' ()
   Updates `revents` fields of the structs in the passed array, where the `ignore` field is set to false.
   NOTE: `timeout` is used as `Int32`; negative value means inifnite timeout, zero means return immediately.
 -/
-@[extern "lean_socket_poll"] opaque poll (s : Array Poll) (timeout : UInt32) : IO (Array Poll)
+@[extern "lean_socket_poll"] opaque poll (s : Array Poll) (timeout : UInt32) :
+  IO (Subtype (α := Array Poll) λ x ↦ x.size = s.size)
 
 end Socket
