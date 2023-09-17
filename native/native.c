@@ -765,6 +765,32 @@ lean_obj_res lean_sockaddr_host(b_lean_obj_arg a, lean_obj_arg w)
     return o;
 }
 
+/**
+ * opaque beq (a1 a2 : @& SockAddr) : Bool
+ */
+uint8_t lean_sockaddr_beq(b_lean_obj_arg a1, b_lean_obj_arg a2) {
+    sockaddr_len* a1s = sockaddr_len_unbox(a1);
+    sockaddr_len* a2s = sockaddr_len_unbox(a2);
+    if (a1s->address.ss_family != a2s->address.ss_family)
+        return 0;
+    switch (a1s->address.ss_family) {
+        case AF_INET: {
+            sockaddr_in* a1i = (sockaddr_in *)&(a1s->address);
+            sockaddr_in* a2i = (sockaddr_in *)&(a2s->address);
+            return a1i->sin_addr.s_addr == a2i->sin_addr.s_addr &&
+                a1i->sin_port == a2i->sin_port;
+        }
+        case AF_INET6: {
+            sockaddr_in6* a1i = (sockaddr_in6 *)&(a1s->address);
+            sockaddr_in6* a2i = (sockaddr_in6 *)&(a2s->address);
+            return a1i->sin6_port == a2i->sin6_port &&
+                memcmp(&a1i->sin6_addr, &a2i->sin6_addr, sizeof(a1i->sin6_addr)) == 0;
+        }
+        default:
+            return 0;
+    }
+}
+
 // ## Other Functions
 
 /**

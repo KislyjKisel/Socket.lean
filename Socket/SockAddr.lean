@@ -21,6 +21,12 @@ opaque mk
 /-- Get family of the [`SockAddr`](##Socket.SockAddr). -/
 @[extern "lean_sockaddr_host"] opaque host (a : @& SockAddr) : Option String
 
+/--
+Equality of socket addresses.
+Supports only inet and inet6 address families, always returns false for others.
+-/
+@[extern "lean_sockaddr_beq"] opaque beq (a1 a2 : @& SockAddr) : Bool
+
 end SockAddr
 
 /-- Convert [`SockAddr`](##Socket.SockAddr) to `String`. -/
@@ -30,5 +36,7 @@ instance : ToString SockAddr where
     let port := a.port.map (s!"{·}") |>.getD "none"
     let family := a.family.map (s!"{·}") |>.getD "none"
     s!"({host}, {port}, {family})"
+
+instance : BEq SockAddr := ⟨SockAddr.beq⟩
 
 end Socket
