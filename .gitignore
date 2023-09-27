@@ -1,4 +1,5 @@
 **/build
+**/lakefile.olean
 **/lean_packages
 .vscode
 result*

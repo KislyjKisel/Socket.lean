@@ -16,9 +16,7 @@ def ffiLib := "ffi"
 target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / ffiO
   let srcJob ← inputFile <| pkg.dir / cDir / ffiSrc
-  buildFileAfterDep oFile srcJob fun srcFile => do
-    let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
-    compileO ffiSrc oFile srcFile flags
+  buildO ffiSrc oFile srcJob #["-I", (← getLeanIncludeDir).toString] #["-fPIC"]
 
 extern_lib ffi pkg := do
   let name := nameToStaticLib ffiLib
