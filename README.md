@@ -1,5 +1,7 @@
 # Lean4-Socket
 
+**This fork won't be updated or maintained, for a more recently active alternative see [hargoniX/socket.lean](https://github.com/hargoniX/socket.lean).**
+
 A toy implementation of socket programming for Lean 4.
 
 ## Installation
